@@ -202,3 +202,4 @@ Run the main.yaml playbook passing to it the Ansible vault file:
 ```bash
 # ansible-playbook --vault-password-file <YOURVAULTPWFILE> main.yaml
 ```
+
