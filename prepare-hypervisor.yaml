@@ -319,9 +319,9 @@
       - ansible_distribution == "CentOS"
       - ansible_distribution_release == "Stream"
 
-  - name: Install rdo-release-yoga-1.el8.noarch.rpm
+  - name: Add latest RDO repository to system
     shell: |
-      dnf install -y https://repos.fedorapeople.org/repos/openstack/openstack-yoga/rdo-release-yoga-1.el8.noarch.rpm
+      dnf install -y https://trunk.rdoproject.org/rdo_release/rdo-release.el9s.rpm
     when:
       - ansible_distribution != "CentOS"
       - ansible_os_family == "RedHat"
@@ -350,10 +350,10 @@
     when:
       - redfish.enable|bool
 
-  - name: Install ansible
+  - name: Install ansible-navigator
     dnf:
       name:
-        - ansible
+        - ansible-navigator
       state: present
 
   - name: Add sushy-tools user to libvirt group
@@ -769,7 +769,7 @@
         options kvm_intel nested=1
         #
         # For AMD
-        options kvm_amd nested=1
+        #options kvm_amd nested=1
     register: enable_nested
 
   - name: Run dracut
@@ -874,8 +874,8 @@
   - name: clone repo
     shell: |
       cd /root
-      git clone https://github.com/amedeos/ocp4-in-the-jars
-      cd /root/ocp4-in-the-jars
+      git clone https://github.com/bemarek/ocp4-install-ipi-on-virtual-bmh
+      cd /root/ocp4-install-ipi-on-virtual-bmh
       git pull
     ignore_errors: True
     when:

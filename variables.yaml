@@ -63,7 +63,7 @@ kvmhost:
   reboot_timeout: 1200
   enable_portfw: True
   replace_ddns_duckdns: False
-  provisioning_bridge_create: True
+  provisioning_bridge_create: False
   provisioning_bridge_isolated: True
   baremetal_bridge_create: True
   baremetal_bridge_isolated: True
@@ -80,8 +80,8 @@ enable_letsencrypt: False
 # used on cleanup
 image_dir: /var/lib/libvirt/images
 image_dir_bastion: /var/lib/libvirt/imagesssd
-image: rhel-9.4-x86_64-kvm.qcow2
-image_location: /root/images/rhel-9.4-x86_64-kvm.qcow2
+image: rhel-9.5-x86_64-kvm.qcow2
+image_location: /root/images/rhel-9.5-x86_64-kvm.qcow2
 pull_secret_file: pull-secret.txt
-supported_os: rhel8
-ocpversion: stable-4.16
+supported_os: rhel9
+ocpversion: stable-4.19
