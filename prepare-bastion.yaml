@@ -265,13 +265,13 @@
       password: "{{ rh_subcription_password }}"
       force_register: True
 
-  - name: Attach poolid
-    shell: |
-      subscription-manager attach --pool={{ rh_subcription_pool }}
+#  - name: Attach poolid
+#    shell: |
+#      subscription-manager attach --pool={{ rh_subcription_pool }}
 
   - name: Set base repository for the bastion
     shell: |
-      subscription-manager repos --disable='*' --enable=rhel-8-for-x86_64-baseos-rpms --enable=rhel-8-for-x86_64-appstream-rpms --enable=ansible-2.9-for-rhel-8-x86_64-rpms
+      subscription-manager repos --disable='*' --enable=rhel-9-for-x86_64-baseos-rpms --enable=rhel-9-for-x86_64-appstream-rpms --enable=ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms 
 
   # maybe the subscription id shouln't has odf subs
   - name: Enable odf repository for the bastion
