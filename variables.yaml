@@ -81,7 +81,7 @@ enable_letsencrypt: False
 image_dir: /var/lib/libvirt/images
 image_dir_bastion: /var/lib/libvirt/imagesssd
 image: rhel-9.5-x86_64-kvm.qcow2
-image_location: /root/images/rhel-9.5-x86_64-kvm.qcow2
+image_location: "https://access.cdn.redhat.com/content/origin/files/sha256/49/49443696e7f2410e5647aa16f15eb7b7b08610fea92cdf3eba44ab9ec9ff899f/rhel-9.6-x86_64-kvm.qcow2?user=89270a5405556c8ce784f10969cc69f5&_auth_=1753636127_f9a389f7fceea77e941f11d708690bfc"
 pull_secret_file: pull-secret.txt
 supported_os: rhel9
 ocpversion: stable-4.19
