@@ -56,6 +56,8 @@
       name: "*"
       state: latest
     register: upgrade_system
+# Added to avoid conflicts - to be checked and fixed later
+    when: false
 
   - name: Reboot after Upgrade
     reboot:
@@ -255,6 +257,8 @@
     shell: |
       dnf module enable virt:rhel
       dnf distro-sync -y
+# Added to avoid conflicts - to be checked and fixed later
+    when: false
 
   - name: Install some packages
     dnf:
@@ -278,13 +282,12 @@
         - qemu-kvm
         - virt-manager
         - virt-install
-        - libguestfs-tools
+        - guestfs-tools
         - libguestfs-xfs
         - virt-viewer
         - net-tools
         - mlocate
         - sshpass
-        - redhat-lsb-core
         - podman
         - ipmitool
         - tree
@@ -891,15 +894,15 @@
     copy:
       backup: True
       src: bm-ansible-nodes-disconnected.json
-      dest: /root/ocp4-in-the-jars/bm-ansible-nodes.json
+      dest: /root/ocp4-install-ipi-on-virtual-bmh/bm-ansible-nodes.json
     when:
       - kvmhost.provisioning_bridge_isolated|bool
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: Overwrite image_location
     shell: |
-      IMAGE=$(egrep '^image:\s+' /root/ocp4-in-the-jars/variables.yaml | sed -E 's/^image:\s+//g')
-      sed -i -E "s@^image_location:\s+.*@image_location: /root/images/${IMAGE}@g" /root/ocp4-in-the-jars/variables.yaml
+      IMAGE=$(egrep '^image:\s+' /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml | sed -E 's/^image:\s+//g')
+      sed -i -E "s@^image_location:\s+.*@image_location: /root/images/${IMAGE}@g" /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml
     when:
       - kvmhost.provisioning_bridge_isolated|bool
       - kvmhost.baremetal_bridge_isolated|bool
@@ -927,7 +930,7 @@
 
   - name: Overwrite replace_ddns_duckdns
     shell: |
-      sed -i -E 's/replace_ddns_duckdns:.*/replace_ddns_duckdns: True/g' /root/ocp4-in-the-jars/variables.yaml
+      sed -i -E 's/replace_ddns_duckdns:.*/replace_ddns_duckdns: True/g' /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml
     when:
       - enable_ddns_duckdns|bool
       - kvmhost.provisioning_bridge_isolated|bool
