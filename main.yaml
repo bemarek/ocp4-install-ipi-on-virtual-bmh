@@ -2,13 +2,13 @@
   tags:
     - create-ssh-key
 
-- import_playbook: prepare-images-utility.yaml
-  tags:
-    - prepare-images-utility
-
 - import_playbook: prepare-images-bastion.yaml
   tags:
     - prepare-images-bastion
+
+- import_playbook: prepare-images-utility.yaml
+  tags:
+    - prepare-images-utility
 
 - import_playbook: create-ocp4-bm-nodes.yaml
   tags:
