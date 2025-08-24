@@ -26,7 +26,7 @@
   tasks:
   - name: Copying Template Image to create utility. RHEL8
     copy:
-      src: "{{ item.hypervisor_image_dir }}/rhel8-utility.qcow2"
+      src: "{{ item.hypervisor_image_dir }}/rhel9-utility.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/utility.qcow2"
       remote_src: True
     delegate_to: "{{ item.hypervisor_name }}"
@@ -35,7 +35,7 @@
 
   - name: Defining the utility vm - virtualbmc
     shell: |
-      virt-install --ram {{ utility.memory }} --vcpus {{ utility.cpu }} --os-variant rhel8.5 --disk path={{ item.hypervisor_image_dir }}/utility.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }} --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
+      virt-install --ram {{ utility.memory }} --vcpus {{ utility.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/utility.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }} --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
       virsh define /tmp/{{ item.name }}.xml
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
@@ -189,7 +189,8 @@
     add_host:
       name: "{{ item.name }}.{{ domain }}"
       ansible_ssh_user: root
-      ansible_ssh_pass: "{{ secure_password }}"
+#      ansible_ssh_pass: "{{ secure_password }}"
+      ansible_ssh_private_key_file: "{{ ssh_key }}"
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -W %h:%p -q {{ item.hypervisor_user }}@{{ item.hypervisor_name }}"'
       groups:
         - utility
@@ -301,7 +302,7 @@
         - iptables
         - bash-completion
         - tree
-        - redhat-lsb-core
+#        - redhat-lsb-core
         - ipmitool
 
   - name: Create User kni

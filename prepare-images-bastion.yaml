@@ -24,7 +24,7 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
-  - name: Copying RHEL-8 Image from web to images dir
+  - name: Copying RHEL Image from web to images dir
     get_url:
       url: "{{ image_location }}"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2"
@@ -37,7 +37,7 @@
     ignore_errors: True
     with_items: "{{ bastion_nodes }}"
 
-  - name: Copy RHEL-8 image
+  - name: Copy RHEL image
     copy:
       remote_src: True
       src: "{{ image_location }}"
@@ -70,9 +70,12 @@
 
   - name: Resizing the filesystem
     shell: |
-      virt-resize --format qcow2 --expand /dev/sda3 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
+      virt-resize --format qcow2 --expand /dev/sda4 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
+    environment:
+      LIBGUESTFS_DEBUG: "1"
+      LIBGUESTFS_TRACE: "1"
     with_items: "{{ bastion_nodes }}"
     when: ansible_os_family == "RedHat"
 
@@ -80,6 +83,9 @@
     copy:
       src: "{{ ssh_pub }}"
       dest: "/tmp/id_rsa.pub"
+    delegate_to: "{{ item.hypervisor_name }}"
+    run_once: True
+    with_items: "{{ bastion_nodes }}"
 
   - name: Customizing the image to set root password, push ssh key and remove cloud-init
     shell: |

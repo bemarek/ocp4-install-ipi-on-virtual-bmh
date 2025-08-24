@@ -12,10 +12,10 @@
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
       groups:
         - hypervisor_host
-    when:
-      - item.state == "present"
     with_items: "{{ bastion_nodes }}"
-    when: item.hypervisor_name != "localhost"
+    when:
+      - item.hypervisor_name != "localhost"
+#      - item.state == "present"
 
 - name:  Add Bastion VM/Node
   hosts: localhost
@@ -27,8 +27,9 @@
   - name: Add bastion group-host - no localhost
     add_host:
       name: "{{ item.name }}.{{ domain }}"
-      ansible_ssh_pass: "{{ secure_password }}"
+#      ansible_ssh_pass: "{{ secure_password }}"
       ansible_ssh_user: kni
+      ansible_ssh_private_key_file: "{{ ssh_key }}"
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -W %h:%p -q {{ item.hypervisor_user }}@{{ item.hypervisor_name }}"'
       groups:
         - bastion
@@ -39,8 +40,9 @@
   - name: Add bastion group-host - localhost
     add_host:
       name: "{{ item.name }}.{{ domain }}"
-      ansible_ssh_pass: "{{ secure_password }}"
+#      ansible_ssh_pass: "{{ secure_password }}"
       ansible_ssh_user: kni
+      ansible_ssh_private_key_file: "{{ ssh_key }}"
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null '
       groups:
         - bastion
@@ -207,7 +209,7 @@
     shell: |
       podman stop rhcos_image_cache
       podman rm rhcos_image_cache
-      podman run -d --name rhcos_image_cache -v /home/kni/rhcos_image_cache:/var/www/html -p 8080:8080/tcp quay.io/centos7/httpd-24-centos7:latest
+      podman run -d --name rhcos_image_cache -v /home/kni/rhcos_image_cache:/var/www/html -p 8080:8080/tcp registry.access.redhat.com/ubi9/httpd-24
 
   - name: Create openshift-baremetal-install completion bash
     shell: |

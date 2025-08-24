@@ -70,7 +70,10 @@
 
   - name: Resizing the filesystem
     shell: |
-      virt-resize --format qcow2 --expand /dev/sda3 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
+      virt-resize --format qcow2 --expand /dev/sda4 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
+    environment:
+      LIBGUESTFS_DEBUG: 1
+      LIBGUESTFS_TRACE: 1
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ utility_nodes }}"
@@ -80,6 +83,9 @@
     copy:
       src: "{{ ssh_pub }}"
       dest: "/tmp/id_rsa.pub"
+    delegate_to: "{{ item.hypervisor_name }}"
+    run_once: True
+    with_items: "{{ utility_nodes }}"
 
   - name: Customizing the image to set root password, push ssh key and remove cloud-init
     shell: |

@@ -5,7 +5,7 @@ metadata:
 networking:
   machineNetwork:
   - cidr: {{ baremetal_net.net }}/{{ baremetal_net.prefix }}
-  networkType: OpenShiftSDN
+  networkType: OVNKubernetes
 compute:
 - name: worker
   replicas: 2
