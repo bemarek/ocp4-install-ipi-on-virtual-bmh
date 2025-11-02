@@ -32,7 +32,7 @@
      ],
     "master_nodes": [
         {
-            "name": "master-0",
+            "name": "master-1",
             "state": "present",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
@@ -49,7 +49,7 @@
             "baremetal_last": "53"
         },
         {
-            "name": "master-1",
+            "name": "master-2",
             "state": "present",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
@@ -66,7 +66,7 @@
             "baremetal_last": "54"
         },
         {
-            "name": "master-2",
+            "name": "master-3",
             "state": "present",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
@@ -85,9 +85,9 @@
     ],
     "worker_nodes": [
         {
-            "name": "worker-0",
+            "name": "worker-1",
             "state": "present",
-            "is_odf": "true",
+            "is_odf": "false",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
             "hypervisor_ssh_key": "~/.ssh/id_rsa",
@@ -103,9 +103,9 @@
             "baremetal_last": "56"
         },
         {
-            "name": "worker-1",
+            "name": "worker-2",
             "state": "present",
-            "is_odf": "true",
+            "is_odf": "false",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
             "hypervisor_ssh_key": "~/.ssh/id_rsa",
@@ -121,9 +121,9 @@
             "baremetal_last": "57"
         },
         {
-            "name": "worker-2",
+            "name": "worker-3",
             "state": "present",
-            "is_odf": "true",
+            "is_odf": "false",
             "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
             "hypervisor_user": "root",
             "hypervisor_ssh_key": "~/.ssh/id_rsa",
@@ -137,6 +137,60 @@
             "redfish_port": "8000",
             "baremetal_ip": "192.168.203.58",
             "baremetal_last": "58"
+        }
+        {
+            "name": "odf-1",
+            "state": "present",
+            "is_odf": "true",
+            "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
+            "hypervisor_user": "root",
+            "hypervisor_ssh_key": "~/.ssh/id_rsa",
+            "hypervisor_image_dir": "/var/lib/libvirt/images",
+            "provisioning_mac": "52:54:00:00:32:06",
+            "baremetal_mac": "52:54:00:00:33:05",
+            "vbmc_pre_cmd": "",
+            "vbmc_ip": "192.168.201.117",
+            "vbmc_port": "623",
+            "redfish_ip": "192.168.203.1",
+            "redfish_port": "8000",
+            "baremetal_ip": "192.168.203.59",
+            "baremetal_last": "59"
+        }
+        {
+            "name": "odf-2",
+            "state": "present",
+            "is_odf": "true",
+            "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
+            "hypervisor_user": "root",
+            "hypervisor_ssh_key": "~/.ssh/id_rsa",
+            "hypervisor_image_dir": "/var/lib/libvirt/images",
+            "provisioning_mac": "52:54:00:00:32:07",
+            "baremetal_mac": "52:54:00:00:33:05",
+            "vbmc_pre_cmd": "",
+            "vbmc_ip": "192.168.201.117",
+            "vbmc_port": "623",
+            "redfish_ip": "192.168.203.1",
+            "redfish_port": "8000",
+            "baremetal_ip": "192.168.203.60",
+            "baremetal_last": "60"
+        }
+        {
+            "name": "odf-3",
+            "state": "present",
+            "is_odf": "true",
+            "hypervisor_name": "node01.hetzner.zrdn.fc.pl",
+            "hypervisor_user": "root",
+            "hypervisor_ssh_key": "~/.ssh/id_rsa",
+            "hypervisor_image_dir": "/var/lib/libvirt/images",
+            "provisioning_mac": "52:54:00:00:32:08",
+            "baremetal_mac": "52:54:00:00:33:05",
+            "vbmc_pre_cmd": "",
+            "vbmc_ip": "192.168.201.117",
+            "vbmc_port": "623",
+            "redfish_ip": "192.168.203.1",
+            "redfish_port": "8000",
+            "baremetal_ip": "192.168.203.61",
+            "baremetal_last": "61"
         }
     ]
 }
