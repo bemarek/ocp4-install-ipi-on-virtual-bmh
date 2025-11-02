@@ -1,4 +1,4 @@
-- name:  Prepare Various Images required for Installation
+- name:  Extend inventory with hypervisor hosts
   hosts: localhost
   vars_files:
     - variables.yaml
@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -24,9 +24,10 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
+
   - name: Copying RHEL Image from web to images dir
-    get_url:
-      url: "{{ image_location }}"
+    ansible.builtin.get_url:
+      url: "{{ image_location_url }}"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2"
       mode: '0660'
       owner: root
@@ -35,12 +36,13 @@
     run_once: True
     register: image_get_url
     ignore_errors: True
+    when: image_location_url
     with_items: "{{ bastion_nodes }}"
 
   - name: Copy RHEL image
     copy:
       remote_src: True
-      src: "{{ image_location }}"
+      src: "{{ image_location_file }}"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2"
       mode: '0660'
       owner: root
@@ -80,7 +82,7 @@
     when: ansible_os_family == "RedHat"
 
   - name: Copy ssh_pub to temp dir
-    copy:
+    ansible.builtin.copy:
       src: "{{ ssh_pub }}"
       dest: "/tmp/id_rsa.pub"
     delegate_to: "{{ item.hypervisor_name }}"
@@ -115,7 +117,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Copy Base Image to create bastion host image
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2"
       remote_src: True
@@ -124,7 +126,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Create /tmp/ifcfg-eth0 for RHEL8 - virtualbmc
-    copy:
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth0
       mode: '0644'
       content: |
@@ -142,7 +144,7 @@
       - not redfish.enable|bool
 
   - name: Create /tmp/ifcfg-eth1 for RHEL8 - virtualbmc
-    copy:
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth1
       mode: '0644'
       content: |
@@ -160,8 +162,8 @@
     when:
       - not redfish.enable|bool
 
-  - name: Create /tmp/ifcfg-eth0 for RHEL8 - redfish
-    copy:
+  - name: Create /tmp/ifcfg-eth0 for RHEL - redfish
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth0
       mode: '0644'
       content: |
@@ -180,7 +182,7 @@
     when:
       - redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 bastion image - virtualbmc
+  - name: Copying Config files to the bastion image - virtualbmc
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2 /tmp/ifcfg-eth0 /tmp/ifcfg-eth1 /etc/sysconfig/network-scripts/
     environment:
@@ -192,7 +194,7 @@
       - not ansible_os_family == "RedHat"
       - not redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 bastion image - virtualbmc
+  - name: Copying Config files to the RHEL bastion image - virtualbmc
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2 /tmp/ifcfg-eth0 /tmp/ifcfg-eth1 /etc/sysconfig/network-scripts/
     delegate_to: "{{ item.hypervisor_name }}"
@@ -202,7 +204,7 @@
       - ansible_os_family == "RedHat"
       - not redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 bastion image - redfish
+  - name: Copying Config files to the bastion image - redfish
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2 /tmp/ifcfg-eth0 /etc/sysconfig/network-scripts/
     environment:
@@ -214,7 +216,7 @@
       - not ansible_os_family == "RedHat"
       - redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 bastion image - redfish
+  - name: Copying Config files to the RHEL bastion image - redfish
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2 /tmp/ifcfg-eth0 /etc/sysconfig/network-scripts/
     delegate_to: "{{ item.hypervisor_name }}"
