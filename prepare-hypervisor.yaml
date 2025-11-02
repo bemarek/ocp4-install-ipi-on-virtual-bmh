@@ -5,14 +5,15 @@
     - variables.yaml
     - bm-ansible-nodes.json
   tasks:
+
   - name: Set hostname
-    hostname:
+    ansible.builtin.hostname:
       name: "{{ inventory_hostname }}"
     when:
       - kvmhost.set_hostname|bool
 
   - name: Configure hosts
-    template:
+    ansible.builtin.template:
       src: ansible-templates/etc/hosts.j2
       dest: /etc/hosts
       backup: True
@@ -22,7 +23,7 @@
       - kvmhost.set_hosts|bool
 
   - name: Create ssh key on first host
-    openssh_keypair:
+    community.crypto.openssh_keypair:
       path: "{{ ansible_user_dir }}/.ssh/id_rsa"
       type: rsa
       size: 4096
@@ -34,7 +35,7 @@
       - kvmhost.create_ssh_key|bool
 
   - name: Fetch pub key from first host
-    fetch:
+    ansible.builtin.fetch:
       src: "{{ ansible_user_dir }}/.ssh/id_rsa.pub"
       dest: /tmp/kvmhost-id_rsa.pub
       flat: True
@@ -44,7 +45,7 @@
       - kvmhost.create_ssh_key|bool
 
   - name: Trust fetched key to all nodes
-    authorized_key:
+    ansible.posix.authorized_key:
       user: "{{ ansible_ssh_user }}"
       state: present
       key: "{{ lookup('file', '/tmp/kvmhost-id_rsa.pub') }}"
@@ -52,7 +53,7 @@
       - kvmhost.create_ssh_key|bool
 
   - name: Upgrade to latest version
-    dnf:
+    ansible.builtin.dnf:
       name: "*"
       state: latest
     register: upgrade_system
@@ -60,27 +61,27 @@
     when: false
 
   - name: Reboot after Upgrade
-    reboot:
+    ansible.builtin.reboot:
       reboot_timeout: "{{ kvmhost.reboot_timeout }}"
     when:
       - upgrade_system.changed
 
   - name: Check selinux status
-    shell: |
+    ansible.builtin.shell: |
       sestatus | egrep '^Current mode:' | sed -E 's/^Current mode:\s+//g'
     register: selinux_status
     when:
       - kvmhost.enable_selinux|bool
 
   - name: Enable SELinux
-    selinux:
+    ansible.posix.selinux:
       policy: targeted
       state: enforcing
     when:
       - kvmhost.enable_selinux|bool
 
   - name: Create autorelabel file
-    file:
+    ansible.builtin.file:
       path: /.autorelabel
       state: touch
     when:
@@ -88,20 +89,20 @@
       - not selinux_status.stdout == "enforcing"
 
   - name: Reboot in order to enable selinux
-    reboot:
+    ansible.builtin.reboot:
       reboot_timeout: "{{ kvmhost.reboot_timeout }}"
     when:
       - kvmhost.enable_selinux|bool
       - not selinux_status.stdout == "enforcing"
 
   - name: Comment all rp_filter
-    shell: |
+    ansible.builtin.shell: |
       for f in /etc/sysctl.conf /etc/sysctl.d/*.conf ; do 
         sed -i -E 's/^(net.*\.rp_filter.*)/#\1/g' ${f}
       done
 
   - name: Setting Kernel parameters
-    copy:
+    ansible.builtin.copy:
       dest: /etc/sysctl.d/99-kvmhost.conf
       content: |
         net.ipv4.ip_forward=1
@@ -116,7 +117,7 @@
 
   # on this case (isolated) the bridge kept default gw ip
   - name: Create provisioning bridge - isolated
-    nmcli:
+    community.general.nmcli:
       type: bridge
       conn_name: "{{ bridge_prov }}"
       ifname: "{{ bridge_prov }}"
@@ -129,7 +130,7 @@
       - kvmhost.provisioning_bridge_isolated|bool
 
   - name: Create provisioning bridge template
-    template:
+    ansible.builtin.template:
       src: ansible-templates/root/kvmhost-provisioning-net.sh
       dest: /root/kvmhost-provisioning-net.sh
       mode: 0755
@@ -140,14 +141,14 @@
       - not kvmhost.provisioning_bridge_isolated|bool
 
   - name: Create provisioning bridge - steal ip
-    shell: |
+    ansible.builtin.shell: |
       nohup /root/kvmhost-provisioning-net.sh &
     when:
       - kvmhost.provisioning_bridge_create|bool
       - not kvmhost.provisioning_bridge_isolated|bool
 
   - name: Add vbmc_ip to provisioning bridge - isolated
-    shell: |
+    ansible.builtin.shell: |
       nmcli connection modify {{ bridge_prov }} +ipv4.addresses {{ item.vbmc_ip }}/{{ provision_net.prefix }}
     with_items:
       - "{{ master_nodes }}"
@@ -160,7 +161,7 @@
       - not redfish.enable|bool
 
   - name: Add vbmc_ip to provisioning bridge
-    shell: |
+    ansible.builtin.shell: |
       nmcli connection modify {{ bridge_prov }} +ipv4.addresses {{ item.vbmc_ip }}/{{ provision_net.prefix }}
     with_items:
       - "{{ master_nodes }}"
@@ -174,7 +175,7 @@
       - not redfish.enable|bool
 
   - name: Create baremetal bridge - isolated
-    nmcli:
+    community.general.nmcli:
       type: bridge
       conn_name: "{{ bridge_bm }}"
       ifname: "{{ bridge_bm }}"
@@ -187,7 +188,7 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: Create baremetal bridge template
-    template:
+    ansible.builtin.template:
       src: ansible-templates/root/kvmhost-baremetal-net.sh
       dest: /root/kvmhost-baremetal-net.sh
       mode: 0755
@@ -198,28 +199,28 @@
       - not kvmhost.baremetal_bridge_isolated|bool
 
   - name: Create baremetal bridge - not isolated
-    shell: |
+    ansible.builtin.shell: |
       nohup /root/kvmhost-baremetal-net.sh &
     when:
       - kvmhost.baremetal_bridge_create|bool
       - not kvmhost.baremetal_bridge_isolated|bool
 
   - name: Fix mtu for isolated network - provisioning
-    shell: |
+    ansible.builtin.shell: |
       nmcli connection modify {{ bridge_prov }} 802-3-ethernet.mtu {{ provision_net.mtu }}
     when:
       - kvmhost.provisioning_bridge_create|bool
       - kvmhost.provisioning_bridge_isolated|bool
 
   - name: Fix mtu for isolated network - baremetal
-    shell: |
+    ansible.builtin.shell: |
       nmcli connection modify {{ bridge_bm }} 802-3-ethernet.mtu {{ baremetal_net.mtu }}
     when:
       - kvmhost.baremetal_bridge_create|bool
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: Add baremetal ip
-    shell: |
+    ansible.builtin.shell: |
       nmcli connection modify {{ bridge_bm }} ipv4.method manual +ipv4.addresses {{ baremetal_ip }}/{{ baremetal_net.prefix }}
     when:
       - kvmhost.baremetal_bridge_create|bool
@@ -227,18 +228,18 @@
       - kvmhost.enable_baremetal_gw|bool
 
   - name: Reboot after creating bridges
-    reboot:
+    ansible.builtin.reboot:
       reboot_timeout: "{{ kvmhost.reboot_timeout }}"
     when:
       - kvmhost.provisioning_bridge_create|bool or kvmhost.baremetal_bridge_create|bool
 
   - name: Getting rp_filter variables to set
-    shell: |
+    ansible.builtin.shell: |
       sysctl -A 2> /dev/null | grep "\.rp_filter"  | cut -d"=" -f1
     register: sysctl_rp_filter
 
   - name: Setting Systcl rp_filter variables dynamically
-    sysctl:
+    ansible.posix.sysctl:
       name: "{{ item }}"
       value: '0'
       sysctl_set: yes
@@ -249,19 +250,19 @@
       - "{{ sysctl_rp_filter.stdout_lines }}"
 
   - name: restart sysctl
-    systemd:
+    ansible.builtin.systemd:
       name: systemd-sysctl.service
       state: restarted
 
   - name: enable virt module
-    shell: |
+    ansible.builtin.shell: |
       dnf module enable virt:rhel
       dnf distro-sync -y
 # Added to avoid conflicts - to be checked and fixed later
     when: false
 
   - name: Install some packages
-    dnf:
+    ansible.builtin.dnf:
       name:
         - tmux
         - nmap
@@ -294,7 +295,7 @@
       state: present
 
   - name: Install keepalived
-    dnf:
+    ansible.builtin.dnf:
       name:
         - keepalived
       state: present
@@ -316,28 +317,28 @@
   #    state: present
 
   - name: Install centos-release-openstack-yoga.noarch
-    shell: |
+    ansible.builtin.shell: |
       dnf install -y centos-release-openstack-yoga.noarch
     when:
       - ansible_distribution == "CentOS"
       - ansible_distribution_release == "Stream"
 
   - name: Add latest RDO repository to system
-    shell: |
+    ansible.builtin.shell: |
       dnf install -y https://trunk.rdoproject.org/rdo_release/rdo-release.el9s.rpm
     when:
       - ansible_distribution != "CentOS"
       - ansible_os_family == "RedHat"
 
   - name: Install virtualbmc
-    dnf:
+    ansible.builtin.dnf:
       name: python3-virtualbmc
       state: present
     when:
       - not redfish.enable|bool
 
   - name: Enable virtualbmc service
-    systemd:
+    ansible.builtin.systemd:
       name: virtualbmc.service
       state: started
       enabled: True
@@ -345,7 +346,7 @@
       - not redfish.enable|bool
 
   - name: Install python3-sushy-tools
-    dnf:
+    ansible.builtin.dnf:
       name:
         - python3-sushy-tools
         - httpd-tools
@@ -354,14 +355,14 @@
       - redfish.enable|bool
 
   - name: Install ansible-navigator
-    dnf:
+    ansible.builtin.dnf:
       enablerepo: ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms
       name:
         - ansible-navigator
       state: present
 
   - name: Add sushy-tools user to libvirt group
-    user:
+    ansible.builtin.user:
       name: sushy-tools
       groups: libvirt
       append: True
@@ -369,12 +370,12 @@
       - redfish.enable|bool
 
   - name: Create auth file for sushy-tools
-    shell: "htpasswd -c -B -b /etc/sushy-emulator/auth_file admin {{ secure_password }}"
+    ansible.builtin.shell: "htpasswd -c -B -b /etc/sushy-emulator/auth_file admin {{ secure_password }}"
     when:
       - redfish.enable|bool
 
   - name: Ensure private key is present
-    openssl_privatekey:
+    community.crypto.openssl_privatekey:
       path: /etc/sushy-emulator/sushy-tools.key
       size: 2048
       mode: 0640
@@ -385,7 +386,7 @@
       - redfish.enable|bool
 
   - name: Ensure self-signed cert is present
-    openssl_certificate:
+    community.crypto.openssl_certificate:
       path: /etc/sushy-emulator/sushy-tools.crt
       privatekey_path: /etc/sushy-emulator/sushy-tools.key
       provider: selfsigned
@@ -395,7 +396,7 @@
       - redfish.enable|bool
 
   - name: Configure sushy-emulator.conf
-    template:
+    ansible.builtin.template:
       src: ansible-templates/etc/sushy-emulator/sushy-emulator.conf.j2
       dest: /etc/sushy-emulator/sushy-emulator.conf
       owner: root
@@ -406,7 +407,7 @@
       - redfish.enable|bool
 
   - name: Restart sushy-emulator service
-    systemd:
+    ansible.builtin.systemd:
       name: sushy-emulator.service
       state: restarted
       enabled: True
@@ -428,18 +429,18 @@
   #    - ansible_os_family == "RedHat"
 
   - name: Clean dnf cache
-    shell: |
+    ansible.builtin.shell: |
       dnf clean all
 
   - name: disable firewalld
-    systemd:
+    ansible.builtin.systemd:
       name: firewalld
       state: stopped
       enabled: False
     ignore_errors: True
 
   - name: iptables flush filter
-    iptables:
+    ansible.builtin.iptables:
       chain: "{{ item }}"
       flush: yes
     ignore_errors: True
@@ -454,7 +455,7 @@
       - 'LIBVIRT_FWX'
 
   - name: iptables flush nat
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       chain: '{{ item }}'
       flush: yes
@@ -467,7 +468,7 @@
       - 'LIBVIRT_PRT'
 
   - name: iptables flush mangle
-    iptables:
+    ansible.builtin.iptables:
       table: mangle
       chain: '{{ item }}'
       flush: yes
@@ -480,13 +481,13 @@
       - 'LIBVIRT_PRT'
 
   - name: Allow related and established connections
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       ctstate: ESTABLISHED,RELATED
       jump: ACCEPT
 
   - name: Allow new incoming SYN packets on TCP port 22 (SSH).
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: tcp
       destination_port: 22
@@ -496,19 +497,19 @@
       comment: Accept new SSH connections.
 
   - name: enable traffic from loopback
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       in_interface: lo
       jump: ACCEPT
 
   - name: enable icmp
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: icmp
       jump: ACCEPT
 
   - name: Allow ipmi traffic to vbmc_ip - isolated
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: udp
       destination: "{{ item.vbmc_ip }}"
@@ -524,7 +525,7 @@
       - not redfish.enable|bool
 
   - name: Allow ipmi traffic to vbmc_ip
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: udp
       destination: "{{ item.vbmc_ip }}"
@@ -541,7 +542,7 @@
       - not redfish.enable|bool
 
   - name: Allow ipmi incoming traffic from provisioning network
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: udp
       source: "{{ provision_net.net }}/{{ provision_net.prefix }}"
@@ -551,7 +552,7 @@
       - not redfish.enable|bool
 
   - name: Allow redfish incoming traffic from baremetal network
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: tcp
       source: "{{ baremetal_net.net }}/{{ baremetal_net.prefix }}"
@@ -561,7 +562,7 @@
       - redfish.enable|bool
 
   - name: Allow VRRP protocol
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       protocol: vrrp
       source: "{{ baremetal_net.net }}/{{ baremetal_net.prefix }}"
@@ -570,12 +571,12 @@
       - kvmhost.enable_baremetal_gw
 
   - name: Set the last rule as REJECT for INPUT
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       jump: REJECT
 
   - name: enable source forward - isolated
-    iptables:
+    ansible.builtin.iptables:
       chain: FORWARD
       source: "{{ item }}"
       jump: ACCEPT
@@ -586,7 +587,7 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: enable baremetal source forward
-    iptables:
+    ansible.builtin.iptables:
       chain: FORWARD
       source: "{{ item }}"
       jump: ACCEPT
@@ -597,7 +598,7 @@
       - redfish.enable_nat|bool
 
   - name: enable destination forward - isolated
-    iptables:
+    ansible.builtin.iptables:
       chain: FORWARD
       destination: "{{ item }}"
       jump: ACCEPT
@@ -608,7 +609,7 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: enable baremetal destination forward
-    iptables:
+    ansible.builtin.iptables:
       chain: FORWARD
       destination: "{{ item }}"
       jump: ACCEPT
@@ -619,7 +620,7 @@
       - redfish.enable_nat|bool
 
   - name: enable MASQUERADING - isolated
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       chain: POSTROUTING
       source: "{{ item }}"
@@ -631,7 +632,7 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: enable baremetal MASQUERADING
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       chain: POSTROUTING
       source: "{{ item }}"
@@ -643,7 +644,7 @@
       - redfish.enable_nat|bool
 
   - name: enable port forwarding for port 443
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       chain: PREROUTING
       in_interface: "{{ item }}"
@@ -659,7 +660,7 @@
       - kvmhost.baremetal_bridge_isolated|bool or ( redfish.enable|bool and redfish.enable_nat|bool )
 
   - name: enable port forwarding for port 6443
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       chain: PREROUTING
       in_interface: "{{ item }}"
@@ -675,7 +676,7 @@
       - kvmhost.baremetal_bridge_isolated|bool or ( redfish.enable|bool and redfish.enable_nat|bool )
 
   - name: Set the last rule as REJECT for FORWARD
-    iptables:
+    ansible.builtin.iptables:
       chain: FORWARD
       jump: REJECT
 
@@ -684,14 +685,14 @@
       /usr/sbin/iptables-save > /etc/sysconfig/iptables
 
   - name: ip6tables flush filter
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: "{{ item }}"
       flush: yes
     with_items:  [ 'INPUT', 'FORWARD', 'OUTPUT' ]
 
   - name: ip6tables flush nat
-    iptables:
+    ansible.builtin.iptables:
       table: nat
       ip_version: ipv6
       chain: '{{ item }}'
@@ -699,14 +700,14 @@
     with_items: [ 'INPUT', 'OUTPUT', 'PREROUTING', 'POSTROUTING' ]
 
   - name: Allow related and established connections
-    iptables:
+    ansible.builtin.iptables:
       chain: INPUT
       ip_version: ipv6
       ctstate: ESTABLISHED,RELATED
       jump: ACCEPT
 
   - name: Allow new incoming SYN packets on TCP port 22 (SSH).
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
       protocol: tcp
@@ -717,49 +718,49 @@
       comment: Accept new SSH connections.
 
   - name: enable traffic from loopback
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
       in_interface: lo
       jump: ACCEPT
 
   - name: enable icmp
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
       protocol: icmp
       jump: ACCEPT
 
   - name: Set the last rule as REJECT for INPUT
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
       jump: REJECT
 
   - name: Set the last rule as REJECT for FORWARD
-    iptables:
+    ansible.builtin.iptables:
       ip_version: ipv6
       chain: FORWARD
       jump: REJECT
 
   - name: save ip6tables configuration
-    shell: |
+    ansible.builtin.shell: |
       /usr/sbin/ip6tables-save > /etc/sysconfig/ip6tables
 
   - name: enable iptables services
-    systemd:
+    ansible.builtin.systemd:
       name: iptables
       state: started
       enabled: True
 
   - name: enable ip6tables services
-    systemd:
+    ansible.builtin.systemd:
       name: ip6tables
       state: started
       enabled: True
 
   - name: Ensure nested virtualization are enabled
-    copy:
+    ansible.builtin.copy:
       dest: /etc/modprobe.d/kvm.conf
       content: |
         # Setting modprobe kvm_intel/kvm_amd nested = 1
@@ -777,25 +778,25 @@
     register: enable_nested
 
   - name: Run dracut
-    shell: |
+    ansible.builtin.shell: |
       dracut -fv
     when:
       - enable_nested.changed
 
   - name: Reboot after dracut
-    reboot:
+    ansible.builtin.reboot:
       reboot_timeout: "{{ kvmhost.reboot_timeout }}"
     when:
       - enable_nested.changed
 
   - name: Restart Libvirtd Service
-    systemd:
+    ansible.builtin.systemd:
       state: restarted
       name: libvirtd
       enabled: yes
 
   - name: Check if pool default is present
-    shell: |
+    ansible.builtin.shell: |
       virsh pool-list | egrep '\s+default'
     register: pool_default
     failed_when: pool_default.rc|float > 100
@@ -803,7 +804,7 @@
       - redfish.enable|bool
 
   - name: Create template for default pool
-    template:
+    ansible.builtin.template:
       src: ansible-templates/root/default_pool.xml.j2
       dest: /root/default_pool.xml
       owner: root
@@ -814,7 +815,7 @@
       - pool_default.rc|float > 0
 
   - name: Create template for default pool
-    template:
+    ansible.builtin.template:
       src: ansible-templates/root/default_pool.sh
       dest: /root/default_pool.sh
       owner: root
@@ -825,14 +826,14 @@
       - pool_default.rc|float > 0
 
   - name: Define default pool
-    shell: |
+    ansible.builtin.shell: |
       nohup /root/default_pool.sh
     when:
       - redfish.enable|bool
       - pool_default.rc|float > 0
 
   - name: Restart Libvirtd Service
-    systemd:
+    ansible.builtin.systemd:
       state: restarted
       name: libvirtd
       enabled: yes
@@ -841,7 +842,7 @@
       - pool_default.rc|float > 0
 
   - name: Generate rand password
-    shell: |
+    ansible.builtin.shell: |
       openssl rand -hex 20
     run_once: True
     register: rand_password
@@ -850,14 +851,14 @@
       - kvmhost.enable_baremetal_gw
 
   - name: Set insecure_password
-    set_fact:
+    ansible.builtin.set_fact:
       insecure_password: "{{ rand_password.stdout }}"
     when:
       - insecure_password is not defined
       - kvmhost.enable_baremetal_gw
 
   - name: Configure keepalived
-    template:
+    ansible.builtin.template:
       src: ansible-templates/etc/keepalived/keepalived.conf.j2
       dest: /etc/keepalived/keepalived.conf
       backup: True
@@ -868,7 +869,7 @@
       - kvmhost.enable_baremetal_gw
 
   - name: Restart keepalived
-    systemd:
+    ansible.builtin.systemd:
       name: keepalived.service
       state: restarted
       enabled: True
@@ -876,7 +877,7 @@
       - kvmhost.enable_baremetal_gw
 
   - name: clone repo
-    shell: |
+    ansible.builtin.shell: |
       cd /root
       git clone https://github.com/bemarek/ocp4-install-ipi-on-virtual-bmh
       cd /root/ocp4-install-ipi-on-virtual-bmh
@@ -887,12 +888,12 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: create images dir
-    file:
+    ansible.builtin.file:
       path: /root/images
       state: directory
 
   - name: Overwrite bm-ansible-nodes.json file
-    copy:
+    ansible.builtin.copy:
       backup: True
       src: bm-ansible-nodes-disconnected.json
       dest: /root/ocp4-install-ipi-on-virtual-bmh/bm-ansible-nodes.json
@@ -901,7 +902,7 @@
       - kvmhost.baremetal_bridge_isolated|bool
 
   - name: Overwrite image_location
-    shell: |
+    ansible.builtin.shell: |
       IMAGE=$(egrep '^image:\s+' /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml | sed -E 's/^image:\s+//g')
       sed -i -E "s@^image_location:\s+.*@image_location: /root/images/${IMAGE}@g" /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml
     when:
@@ -930,7 +931,7 @@
   #    - kvmhost.baremetal_bridge_isolated|bool
 
   - name: Overwrite replace_ddns_duckdns
-    shell: |
+    ansible.builtin.shell: |
       sed -i -E 's/replace_ddns_duckdns:.*/replace_ddns_duckdns: True/g' /root/ocp4-install-ipi-on-virtual-bmh/variables.yaml
     when:
       - enable_ddns_duckdns|bool
@@ -938,7 +939,7 @@
       - kvmhost.baremetal_bridge_isolated|bool or ( redfish.enable|bool and redfish.enable_nat|bool )
 
   - name: Create vimrc file
-    template:
+    ansible.builtin.template:
       src: ansible-templates/home/kni/vimrc
       dest: /root/.vimrc
       owner: root
@@ -946,7 +947,7 @@
       mode: 0664
 
   - name: Final messages
-    debug:
+    ansible.builtin.debug:
       msg:
         - "#####################################################################################"
         - "# Please connect in ssh to your Hypervisor and run:                                 #"
