@@ -1,4 +1,4 @@
-- name:  Prepare Various Images required for Installation
+- name:  Extend inventory with hypervisor hosts
   hosts: localhost
   vars_files:
     - variables.yaml
@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -24,23 +24,25 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
-  - name: Copying RHEL-8 Image from web to images dir
-    get_url:
-      url: "{{ image_location }}"
+
+  - name: Copying RHEL Image from web to images dir
+    ansible.builtin.get_url:
+      url: "{{ image_location_url }}"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2"
       mode: '0660'
       owner: root
       group: root
     delegate_to: "{{ item.hypervisor_name }}"
+    run_once: True
     register: image_get_url
     ignore_errors: True
-    run_once: True
+    when: image_location_url
     with_items: "{{ utility_nodes }}"
 
-  - name: Copy RHEL-8 image
+  - name: Copy RHEL image
     copy:
       remote_src: True
-      src: "{{ image_location }}"
+      src: "{{ image_location_file }}"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2"
       mode: '0660'
       owner: root
@@ -71,11 +73,11 @@
   - name: Resizing the filesystem
     shell: |
       virt-resize --format qcow2 --expand /dev/sda4 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
-    environment:
-      LIBGUESTFS_DEBUG: 1
-      LIBGUESTFS_TRACE: 1
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
+    environment:
+      LIBGUESTFS_DEBUG: "1"
+      LIBGUESTFS_TRACE: "1"
     with_items: "{{ utility_nodes }}"
     when: ansible_os_family == "RedHat"
 
@@ -115,7 +117,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Copy Base Image to create utility host image
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2"
       remote_src: True
@@ -124,7 +126,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Create /tmp/ifcfg-eth0 for RHEL8 - virtualbmc
-    copy:
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth0
       mode: '0644'
       content: |
@@ -142,7 +144,7 @@
       - not redfish.enable|bool
 
   - name: Create /tmp/ifcfg-eth1 for RHEL8 - virtualbmc
-    copy:
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth1
       mode: '0644'
       content: |
@@ -161,7 +163,7 @@
       - not redfish.enable|bool
 
   - name: Create /tmp/ifcfg-eth0 for RHEL8 - redfish
-    copy:
+    ansible.builtin.copy:
       dest: /tmp/ifcfg-eth0
       mode: '0644'
       content: |
@@ -180,7 +182,7 @@
     when:
       - redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 utility image - virtualbmc
+  - name: Copying Config files to the utility image - virtualbmc
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2 /tmp/ifcfg-eth0 /tmp/ifcfg-eth1 /etc/sysconfig/network-scripts/
     environment:
@@ -192,7 +194,7 @@
       - not ansible_os_family == "RedHat"
       - not redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 utility image - virtualbmc
+  - name: Copying Config files to the RHEL utility image - virtualbmc
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2 /tmp/ifcfg-eth0 /tmp/ifcfg-eth1 /etc/sysconfig/network-scripts/
     delegate_to: "{{ item.hypervisor_name }}"
@@ -202,7 +204,7 @@
       - ansible_os_family == "RedHat"
       - not redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 utility image - redfish
+  - name: Copying Config files to the utility image - redfish
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2 /tmp/ifcfg-eth0 /etc/sysconfig/network-scripts/
     environment:
@@ -214,7 +216,7 @@
       - not ansible_os_family == "RedHat"
       - redfish.enable|bool
 
-  - name: Copying Config files to the rhel8 utility image - redfish
+  - name: Copying Config files to the RHEL utility image - redfish
     shell: |
       virt-copy-in -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2 /tmp/ifcfg-eth0 /etc/sysconfig/network-scripts/
     delegate_to: "{{ item.hypervisor_name }}"
