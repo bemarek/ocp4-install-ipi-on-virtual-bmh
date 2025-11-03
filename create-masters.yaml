@@ -1,4 +1,4 @@
-- name:  Add hypervisor host in inventory
+- name:  Extend inventory with hypervisor hosts
   hosts: localhost
   vars_files:
     - variables.yaml
@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -24,6 +24,7 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
+
   - name: Create Image for each master
     shell: |
       qemu-img create -f qcow2 -o preallocation=metadata {{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2 {{ master.disk }}
@@ -31,20 +32,65 @@
     run_once: True
     with_items: "{{ master_nodes }}"
 
-  - name: Defining master VMs - virtualbmc
-    shell: |
-      virt-install --ram {{ master.memory }} --vcpus {{ master.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }},mac={{ item.provisioning_mac }} --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  - name: Define master VMs - virtualbmc
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ master.memory }}"
+      vcpus: "{{ master.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_prov }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.provisioning_mac }}"
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ master_nodes }}"
     when:
       - not redfish.enable|bool
 
-  - name: Defining master VMs - redfish
-    shell: |
-      virt-install --ram {{ master.memory }} --vcpus {{ master.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  - name: Define master VMs - redfish
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ master.memory }}"
+      vcpus: "{{ master.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ master_nodes }}"
