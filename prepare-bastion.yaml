@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -25,7 +25,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Copying Template Image to create bastion. RHEL8
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.hypervisor_image_dir }}/rhel9-bastion.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/bastion.qcow2"
       remote_src: True
@@ -33,21 +33,31 @@
     run_once: True
     with_items: "{{ bastion_nodes }}"
 
-# Disabled because volume deletion is required after VM destroy.
-  - name: Destroy any leftover bastion vm
-    community.libvirt.virt:
-      name: "{{ item.name }}"
-      command: undefine
-      force: true
-    delegate_to: "{{ item.hypervisor_name }}"
-    run_once: True
-    with_items: "{{ bastion_nodes }}"
-    when: false
-
   - name: Defining the bastion vm - virtualbmc
-    shell: |
-      virt-install --ram {{ bastion.memory }} --vcpus {{ bastion.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/bastion.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }} --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ bastion.memory }}"
+      vcpus: "{{ bastion.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/bastion.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_prov }}"
+          model:
+            type: virtio
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ bastion_nodes }}"
@@ -55,9 +65,27 @@
       - not redfish.enable|bool
 
   - name: Defining the bastion vm - redfish
-    shell: |
-      virt-install --ram {{ bastion.memory }} --vcpus {{ bastion.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/bastion.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ bastion.memory }}"
+      vcpus: "{{ bastion.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/bastion.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     ignore_errors: True
@@ -65,22 +93,9 @@
     when:
       - redfish.enable|bool
 
-  - name: Creating the bastion vm - redfish
-    community.libvirt.virt:
-      name: "{{ item.name }}"
-      state: running
-      xml: /tmp/{{ item.name }}.xml
-      command: create
-    delegate_to: "{{ item.hypervisor_name }}"
-    run_once: True
-    with_items: "{{ bastion_nodes }}"
-    when:
-      - redfish.enable|bool  
-      - false
-
   # TODO: check ip address available in the hypervisor
   - name: Create virtualbmc interface
-    shell: |
+    ansible.builtin.shell: |
       vbmc add "{{ item.name }}" --address "{{ item.vbmc_ip }}" --port "{{ item.vbmc_port }}" --username admin --password "{{ secure_password }}"
       vbmc start "{{ item.name }}"
     delegate_to: "{{ item.hypervisor_name }}"
@@ -98,7 +113,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Sleeping till ssh on bastion vm is up - virtualbmc
-    wait_for:
+    ansible.builtin.wait_for:
       port: 22
       host: "{{ item.provisioning_ip }}"
       delay: 20
@@ -110,7 +125,7 @@
       - not redfish.enable|bool
 
   - name: Sleeping till ssh on bastion vm is up - redfish
-    wait_for:
+    ansible.builtin.wait_for:
       port: 22
       host: "{{ item.baremetal_ip }}"
       delay: 20
@@ -122,7 +137,7 @@
       - redfish.enable|bool
 
   - name: Remove temp directory for ssh key
-    file:
+    ansible.builtin.file:
       path: ansible-ssh
       state: absent
     delegate_to: "{{ item.hypervisor_name }}"
@@ -130,7 +145,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Create temp directory for ssh key
-    file:
+    ansible.builtin.file:
       path: ansible-ssh
       state: directory
       mode: '0700'
@@ -139,7 +154,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Write ssh key
-    template:
+    ansible.builtin.template:
       dest: "ansible-ssh/id_rsa"
       src: "{{ ssh_key }}"
       mode: 0600
@@ -148,14 +163,14 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Add newline at the end of ssh key
-    shell: |
+    ansible.builtin.shell: |
       echo  >> ansible-ssh/id_rsa
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ bastion_nodes }}"
 
   - name: Update /etc/hosts with bastion entry - virtualbmc
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/hosts
       backup: True
       regexp: "{{ item.name }}.{{ domain }}"
@@ -168,7 +183,7 @@
       - not redfish.enable|bool
 
   - name: Update /etc/hosts with bastion entry - redfish
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/hosts
       backup: True
       regexp: "{{ item.name }}.{{ domain }}"
@@ -181,7 +196,7 @@
       - redfish.enable|bool
 
   - name: Ensure .ssh directory is present
-    file:
+    ansible.builtin.file:
       path: ~/.ssh
       state: directory
       mode: '0700'
@@ -190,7 +205,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Create ssh/config file
-    file:
+    ansible.builtin.file:
       path: ~/.ssh/config
       state: touch
       mode: '0644'
@@ -199,7 +214,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Write ssh/config file
-    blockinfile:
+    ansible.builtin.blockinfile:
       path: ~/.ssh/config
       backup: True
       state: present
@@ -211,7 +226,7 @@
     with_items: "{{ bastion_nodes }}"
 
   - name: Add bastion group-host - no localhost
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.name }}.{{ domain }}"
       ansible_ssh_user: root
 #      ansible_ssh_pass: "{{ secure_password }}"
@@ -223,7 +238,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Add bastion group-host - localhost
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.name }}.{{ domain }}"
       ansible_ssh_user: root
 #      ansible_ssh_pass: "{{ secure_password }}"
@@ -235,7 +250,7 @@
     when: item.hypervisor_name == "localhost"
 
   - name: Write commodity hosts-bastion-root file - no localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-bastion-root
       content: |
         [bastion]
@@ -244,7 +259,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Write commodity hosts-bastion-root file - localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-bastion-root
       content: |
         [bastion]
@@ -253,7 +268,7 @@
     when: item.hypervisor_name == "localhost"
 
   - name: Write commodity hosts-bastion-kni file - no locahost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-bastion-kni
       content: |
         [bastion]
@@ -262,7 +277,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Write commodity hosts-bastion-kni file - locahost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-bastion-kni
       content: |
         [bastion]
@@ -278,15 +293,15 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Setting up hostname
-    hostname:
+    ansible.builtin.hostname:
       name: "bastion.{{ domain }}"
 
   - name: Set timezone to UTC
-    timezone:
+    community.general.timezone:
       name: UTC
 
   - name: Registering Bastion
-    redhat_subscription:
+    ansible.builtin.redhat_subscription:
       state: present
       username: "{{ rh_subcription_user }}"
       password: "{{ rh_subcription_password }}"
@@ -297,28 +312,28 @@
 #      subscription-manager attach --pool={{ rh_subcription_pool }}
 
   - name: Set base repository for the bastion
-    shell: |
+    ansible.builtin.shell: |
       subscription-manager repos --disable='*' --enable=rhel-9-for-x86_64-baseos-rpms --enable=rhel-9-for-x86_64-appstream-rpms --enable=ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms 
 
   # maybe the subscription id shouln't has odf subs
   - name: Enable odf repository for the bastion
-    shell: |
+    ansible.builtin.shell: |
       subscription-manager repos --enable=rh-odf-4-for-rhel-8-x86_64-rpms
     ignore_errors: True
 
   - name: Clean yum cache
-    command: yum clean all
+    ansible.builtin.command: yum clean all
 
   - name: Updating system to latest version
-    dnf:
+    ansible.builtin.dnf:
       name: '*'
       state: latest
 
   - name: Reboot bastion
-    reboot:
+    ansible.builtin.reboot:
 
   - name: Install Basic Required Packages
-    dnf:
+    ansible.builtin.dnf:
       name:
         - podman
         - bind-utils
@@ -338,32 +353,32 @@
 
   # maybe the subscription id shouln't has odf subs
   - name: Install mcg
-    dnf:
+    ansible.builtin.dnf:
       name:
         - mcg
     ignore_errors: True
 
   - name: Create User kni
-    user:
+    ansible.builtin.user:
       name: kni
 
   - name: Reset kni password
-    shell: |
+    ansible.builtin.shell: |
       echo -n {{ secure_password }} | passwd --stdin kni
 
   - name: Assign sudo power to kni user
-    copy:
+    ansible.builtin.copy:
       dest: /etc/sudoers.d/kni
       content: |
         kni ALL=(root) NOPASSWD:ALL
 
   - name: Setting proper permission to /etc/sudoers.d/kni
-    file:
+    ansible.builtin.file:
       path: /etc/sudoers.d/kni
       mode: '0440'
 
   - name: Creates /home/kni/.ssh directory
-    file:
+    ansible.builtin.file:
       path: /home/kni/.ssh
       owner: kni
       group: kni
@@ -371,13 +386,13 @@
       state: directory
 
   - name: Copy Root Authorized Keys to kni User
-    copy:
+    ansible.builtin.copy:
       src: /root/.ssh/authorized_keys
       dest: /home/kni/.ssh/authorized_keys
       remote_src: yes
 
   - name: Copy ssh hey
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.src }}"
       dest: "{{ item.dest }}"
       owner: kni
@@ -388,27 +403,26 @@
       - { src: files/.ssh/id_rsa.pub, dest: /home/kni/.ssh/id_rsa.pub, mode: "0644" }
 
   - name: Add newline at the end of ssh key
-    shell: |
+    ansible.builtin.shell: |
       echo  >> /home/kni/.ssh/id_rsa
 
   - name: Setting proper ownership to /home/kni/.ssh/authorized_keys
-    file:
+    ansible.builtin.file:
       path: /home/kni/.ssh/authorized_keys
       owner: kni
       group: kni
 
   - name: Download tmate
-    get_url:
+    ansible.builtin.get_url:
       url: "https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-linux-amd64.tar.xz"
       dest: /home/kni/tmate-2.4.0-static-linux-amd64.tar.xz
       mode: 0664
 
   - name: Uncompress tmate
-    shell: |
+    ansible.builtin.shell: |
       tar -xvf /home/kni/tmate-2.4.0-static-linux-amd64.tar.xz -C /home/kni/
 
   - name: Move tmate under /usr/bin
-    shell: |
+    ansible.builtin.shell: |
       mv -f /home/kni/tmate-2.4.0-static-linux-amd64/tmate /usr/bin/
     become: True
-
