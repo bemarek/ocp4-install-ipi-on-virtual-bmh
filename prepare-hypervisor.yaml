@@ -243,12 +243,12 @@
     with_items:
       - "{{ sysctl_rp_filter.stdout_lines }}"
 
-  - name: restart sysctl
+  - name: Restart sysctl
     ansible.builtin.systemd:
       name: systemd-sysctl.service
       state: restarted
 
-  - name: enable virt module
+  - name: Enable virt module
     ansible.builtin.shell: |
       dnf module enable virt:rhel
       dnf distro-sync -y
@@ -426,7 +426,7 @@
     ansible.builtin.shell: |
       dnf clean all
 
-  - name: disable firewalld
+  - name: Disable firewalld
     ansible.builtin.systemd:
       name: firewalld
       state: stopped
@@ -490,13 +490,13 @@
       jump: ACCEPT
       comment: Accept new SSH connections.
 
-  - name: enable traffic from loopback
+  - name: Enable traffic from loopback
     ansible.builtin.iptables:
       chain: INPUT
       in_interface: lo
       jump: ACCEPT
 
-  - name: enable icmp
+  - name: Enable icmp
     ansible.builtin.iptables:
       chain: INPUT
       protocol: icmp
@@ -569,7 +569,7 @@
       chain: INPUT
       jump: REJECT
 
-  - name: enable source forward - isolated
+  - name: Enable source forward - isolated
     ansible.builtin.iptables:
       chain: FORWARD
       source: "{{ item }}"
@@ -580,7 +580,7 @@
     when:
       - kvmhost.baremetal_bridge_isolated|bool
 
-  - name: enable baremetal source forward
+  - name: Enable baremetal source forward
     ansible.builtin.iptables:
       chain: FORWARD
       source: "{{ item }}"
@@ -591,7 +591,7 @@
       - redfish.enable|bool
       - redfish.enable_nat|bool
 
-  - name: enable destination forward - isolated
+  - name: Enable destination forward - isolated
     ansible.builtin.iptables:
       chain: FORWARD
       destination: "{{ item }}"
@@ -602,7 +602,7 @@
     when:
       - kvmhost.baremetal_bridge_isolated|bool
 
-  - name: enable baremetal destination forward
+  - name: Enable baremetal destination forward
     ansible.builtin.iptables:
       chain: FORWARD
       destination: "{{ item }}"
@@ -613,7 +613,7 @@
       - redfish.enable|bool
       - redfish.enable_nat|bool
 
-  - name: enable MASQUERADING - isolated
+  - name: Enable MASQUERADING - isolated
     ansible.builtin.iptables:
       table: nat
       chain: POSTROUTING
@@ -625,7 +625,7 @@
     when:
       - kvmhost.baremetal_bridge_isolated|bool
 
-  - name: enable baremetal MASQUERADING
+  - name: Enable baremetal MASQUERADING
     ansible.builtin.iptables:
       table: nat
       chain: POSTROUTING
@@ -637,7 +637,7 @@
       - redfish.enable|bool
       - redfish.enable_nat|bool
 
-  - name: enable port forwarding for port 443
+  - name: Enable port forwarding for port 443
     ansible.builtin.iptables:
       table: nat
       chain: PREROUTING
@@ -653,7 +653,7 @@
       - kvmhost.enable_portfw|bool
       - kvmhost.baremetal_bridge_isolated|bool or ( redfish.enable|bool and redfish.enable_nat|bool )
 
-  - name: enable port forwarding for port 6443
+  - name: Enable port forwarding for port 6443
     ansible.builtin.iptables:
       table: nat
       chain: PREROUTING
@@ -711,14 +711,14 @@
       jump: ACCEPT
       comment: Accept new SSH connections.
 
-  - name: enable traffic from loopback
+  - name: Enable traffic from loopback
     ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
       in_interface: lo
       jump: ACCEPT
 
-  - name: enable icmp
+  - name: Enable icmp
     ansible.builtin.iptables:
       ip_version: ipv6
       chain: INPUT
@@ -737,17 +737,17 @@
       chain: FORWARD
       jump: REJECT
 
-  - name: save ip6tables configuration
+  - name: Save ip6tables configuration
     ansible.builtin.shell: |
       /usr/sbin/ip6tables-save > /etc/sysconfig/ip6tables
 
-  - name: enable iptables services
+  - name: Enable iptables services
     ansible.builtin.systemd:
       name: iptables
       state: started
       enabled: True
 
-  - name: enable ip6tables services
+  - name: Enable ip6tables services
     ansible.builtin.systemd:
       name: ip6tables
       state: started
@@ -870,7 +870,7 @@
     when:
       - kvmhost.enable_baremetal_gw
 
-  - name: clone repo
+  - name: Clone repo
     ansible.builtin.shell: |
       cd /root
       git clone https://github.com/bemarek/ocp4-install-ipi-on-virtual-bmh
@@ -881,7 +881,7 @@
       - kvmhost.provisioning_bridge_isolated|bool
       - kvmhost.baremetal_bridge_isolated|bool
 
-  - name: create images dir
+  - name: Create images dir
     ansible.builtin.file:
       path: /root/images
       state: directory
