@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -25,7 +25,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Copying Template Image to create utility. RHEL8
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.hypervisor_image_dir }}/rhel9-utility.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/utility.qcow2"
       remote_src: True
@@ -34,9 +34,30 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Defining the utility vm - virtualbmc
-    shell: |
-      virt-install --ram {{ utility.memory }} --vcpus {{ utility.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/utility.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }} --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ utility.memory }}"
+      vcpus: "{{ utility.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/utility.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_prov }}"
+          model:
+            type: virtio
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ utility_nodes }}"
@@ -44,9 +65,27 @@
       - not redfish.enable|bool
 
   - name: Defining the utility vm - redfish
-    shell: |
-      virt-install --ram {{ utility.memory }} --vcpus {{ utility.cpu }} --os-variant rhel8.5 --disk path={{ item.hypervisor_image_dir }}/utility.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_bm }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ utility.memory }}"
+      vcpus: "{{ utility.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/utility.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ utility_nodes }}"
@@ -55,7 +94,7 @@
 
   # TODO: check ip address available in the hypervisor
   - name: Create virtualbmc interface
-    shell: |
+    ansible.builtin.shell: |
       vbmc add "{{ item.name }}" --address "{{ item.vbmc_ip }}" --port "{{ item.vbmc_port }}" --username admin --password "{{ secure_password }}"
       vbmc start "{{ item.name }}"
     delegate_to: "{{ item.hypervisor_name }}"
@@ -65,7 +104,7 @@
       - not redfish.enable|bool
 
   - name: Starting utility vm
-    virt:
+    community.libvirt.virt:
       name: "{{ item.name }}"
       state: running
     delegate_to: "{{ item.hypervisor_name }}"
@@ -73,7 +112,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Sleeping till ssh on utility vm is up - virtualbmc
-    wait_for:
+    ansible.builtin.wait_for:
       port: 22
       host: "{{ item.provisioning_ip }}"
       delay: 20
@@ -85,7 +124,7 @@
       - not redfish.enable|bool
 
   - name: Sleeping till ssh on utility vm is up - redfish
-    wait_for:
+    ansible.builtin.wait_for:
       port: 22
       host: "{{ item.baremetal_ip }}"
       delay: 20
@@ -97,7 +136,7 @@
       - redfish.enable|bool
 
   - name: Remove temp directory for ssh key
-    file:
+    ansible.builtin.file:
       path: ansible-ssh
       state: absent
     delegate_to: "{{ item.hypervisor_name }}"
@@ -105,7 +144,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Create temp directory for ssh key
-    file:
+    ansible.builtin.file:
       path: ansible-ssh
       state: directory
       mode: '0700'
@@ -114,7 +153,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Write ssh key
-    template:
+    ansible.builtin.template:
       dest: "ansible-ssh/id_rsa"
       src: "{{ ssh_key }}"
       mode: 0600
@@ -123,14 +162,14 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Add newline at the end of ssh key
-    shell: |
+    ansible.builtin.shell: |
       echo  >> ansible-ssh/id_rsa
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ utility_nodes }}"
 
   - name: Update /etc/hosts with utility entry - virtualbmc
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/hosts
       backup: True
       regexp: "{{ item.name }}.{{ domain }}"
@@ -143,7 +182,7 @@
       - not redfish.enable|bool
 
   - name: Update /etc/hosts with utility entry - redfish
-    lineinfile:
+    ansible.builtin.lineinfile:
       path: /etc/hosts
       backup: True
       regexp: "{{ item.name }}.{{ domain }}"
@@ -156,7 +195,7 @@
       - redfish.enable|bool
 
   - name: Ensure .ssh directory is present
-    file:
+    ansible.builtin.file:
       path: ~/.ssh
       state: directory
       mode: '0700'
@@ -165,7 +204,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Create ssh/config file
-    file:
+    ansible.builtin.file:
       path: ~/.ssh/config
       state: touch
       mode: '0644'
@@ -174,7 +213,7 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Write ssh/config file
-    blockinfile:
+    ansible.builtin.blockinfile:
       path: ~/.ssh/config
       backup: True
       state: present
@@ -186,11 +225,12 @@
     with_items: "{{ utility_nodes }}"
 
   - name: Add utility group-host - no localhost
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.name }}.{{ domain }}"
       ansible_ssh_user: root
 #      ansible_ssh_pass: "{{ secure_password }}"
       ansible_ssh_private_key_file: "{{ ssh_key }}"
+      ansible_ssh_pipelining: false
       ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -W %h:%p -q {{ item.hypervisor_user }}@{{ item.hypervisor_name }}"'
       groups:
         - utility
@@ -198,7 +238,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Add utility group-host - localhost
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.name }}.{{ domain }}"
       ansible_ssh_user: root
       ansible_ssh_pass: "{{ secure_password }}"
@@ -209,7 +249,7 @@
     when: item.hypervisor_name == "localhost"
 
   - name: Write commodity hosts-utility-root file - no localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-utility-root
       content: |
         [utility]
@@ -218,7 +258,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Write commodity hosts-utility-root file - localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-utility-root
       content: |
         [utility]
@@ -227,7 +267,7 @@
     when: item.hypervisor_name == "localhost"
 
   - name: Write commodity hosts-utility-kni file - no localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-utility-kni
       content: |
         [utility]
@@ -236,7 +276,7 @@
     when: item.hypervisor_name != "localhost"
 
   - name: Write commodity hosts-utility-kni file - localhost
-    copy:
+    ansible.builtin.copy:
       dest: hosts-utility-kni
       content: |
         [utility]
@@ -253,15 +293,15 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Setting up hostname
-    hostname:
+    ansible.builtin.hostname:
       name: "utility.{{ domain }}"
 
   - name: Set timezone to UTC
-    timezone:
+    community.general.timezone:
       name: UTC
 
   - name: Registering Utility
-    redhat_subscription:
+    ansible.builtin.redhat_subscription:
       state: present
       username: "{{ rh_subcription_user }}"
       password: "{{ rh_subcription_password }}"
@@ -272,22 +312,22 @@
 #      subscription-manager attach --pool={{ rh_subcription_pool }}
 
   - name: Set repository for the utility
-    shell: |
+    ansible.builtin.shell: |
       subscription-manager repos --disable='*' --enable=rhel-9-for-x86_64-baseos-rpms --enable=rhel-9-for-x86_64-appstream-rpms --enable=ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms 
 
   - name: Clean yum cache
-    command: yum clean all
+    ansible.builtin.command: yum clean all
 
   - name: Updating system to latest version
-    dnf:
+    ansible.builtin.dnf:
       name: '*'
       state: latest
 
   - name: Reboot utility
-    reboot:
+    ansible.builtin.reboot:
 
   - name: Install Basic Required Packages
-    dnf:
+    ansible.builtin.dnf:
       name:
         - bind
         - bind-utils
@@ -306,26 +346,26 @@
         - ipmitool
 
   - name: Create User kni
-    user:
+    ansible.builtin.user:
       name: kni
 
   - name: Reset kni password
-    shell: |
+    ansible.builtin.shell: |
       echo -n {{ secure_password }} | passwd --stdin kni
 
   - name: Assign sudo power to kni user
-    copy:
+    ansible.builtin.copy:
       dest: /etc/sudoers.d/kni
       content: |
         kni ALL=(root) NOPASSWD:ALL
 
   - name: Setting proper permission to /etc/sudoers.d/kni
-    file:
+    ansible.builtin.file:
       path: /etc/sudoers.d/kni
       mode: '0440'
 
   - name: Creates /home/kni/.ssh directory
-    file:
+    ansible.builtin.file:
       path: /home/kni/.ssh
       owner: kni
       group: kni
@@ -333,13 +373,13 @@
       state: directory
 
   - name: Copy Root Authorized Keys to kni User
-    copy:
+    ansible.builtin.copy:
       src: /root/.ssh/authorized_keys
       dest: /home/kni/.ssh/authorized_keys
       remote_src: yes
 
   - name: Copy ssh hey
-    copy:
+    ansible.builtin.copy:
       src: "{{ item.src }}"
       dest: "{{ item.dest }}"
       owner: kni
@@ -350,17 +390,17 @@
       - { src: files/.ssh/id_rsa.pub, dest: /home/kni/.ssh/id_rsa.pub, mode: "0644" }
 
   - name: Add newline at the end of ssh key
-    shell: |
+    ansible.builtin.shell: |
       echo  >> /home/kni/.ssh/id_rsa
 
   - name: Setting proper ownership to /home/kni/.ssh/authorized_keys
-    file:
+    ansible.builtin.file:
       path: /home/kni/.ssh/authorized_keys
       owner: kni
       group: kni
 
   - name: Configure named.conf
-    template:
+    ansible.builtin.template:
       src: ansible-templates/etc/named.conf.j2
       dest: /etc/named.conf
       backup: True
@@ -369,7 +409,7 @@
       group: named
 
   - name: Configure forward domain
-    template:
+    ansible.builtin.template:
       src: "ansible-templates/var/named/named-forward.db"
       dest: "/var/named/{{ domain }}.db"
       backup: True
@@ -377,7 +417,7 @@
       group: named
 
   - name: Configure reverse domain
-    template:
+    ansible.builtin.template:
       src: "ansible-templates/var/named/named-reverse.db"
       dest: "/var/named/{{ domain }}.reverse.db"
       backup: True
@@ -385,14 +425,14 @@
       group: named
 
   - name: Enable named service
-    systemd:
+    ansible.builtin.systemd:
       name: named
       state: restarted
       daemon_reload: True
       enabled: True
 
   - name: Configure dhcpd.conf
-    template:
+    ansible.builtin.template:
       src: ansible-templates/etc/dhcp/dhcpd.conf.j2
       dest: /etc/dhcp/dhcpd.conf
       backup: True
@@ -401,9 +441,8 @@
       mode: 0644
 
   - name: Enable dhcpd service
-    systemd:
+    ansible.builtin.systemd:
       name: dhcpd
       state: restarted
       daemon_reload: True
       enabled: True
-
