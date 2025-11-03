@@ -380,7 +380,7 @@
       - redfish.enable|bool
 
   - name: Ensure self-signed cert is present
-    community.crypto.openssl_certificate:
+    community.crypto.x509_certificate:
       path: /etc/sushy-emulator/sushy-tools.crt
       privatekey_path: /etc/sushy-emulator/sushy-tools.key
       provider: selfsigned
