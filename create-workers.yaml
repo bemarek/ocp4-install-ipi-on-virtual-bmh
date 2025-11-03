@@ -6,7 +6,7 @@
     - bm-ansible-nodes.json
   tasks:
   - name: Add all hypervisor group-host
-    add_host:
+    ansible.builtin.add_host:
       name: "{{ item.hypervisor_name }}"
       ansible_ssh_user: "{{ item.hypervisor_user }}"
       ansible_ssh_private_key_file: "{{ item.hypervisor_ssh_key }}"
@@ -43,10 +43,35 @@
       - item.state == "present"
     with_items: "{{ worker_nodes }}"
 
-  - name: Defining worker VMs - virtualbmc
-    shell: |
-      virt-install --ram {{ worker.memory }} --vcpus {{ worker.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }},mac={{ item.provisioning_mac }} --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  - name: Define worker VMs - virtualbmc
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ worker.memory }}"
+      vcpus: "{{ worker.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_prov }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.provisioning_mac }}"
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     when:
@@ -54,11 +79,31 @@
       - item.state == "present"
       - not redfish.enable|bool
     with_items: "{{ worker_nodes }}"
-
-  - name: Defining worker VMs - redfish
-    shell: |
-      virt-install --ram {{ worker.memory }} --vcpus {{ worker.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  
+  - name: Define worker VMs - redfish
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ worker.memory }}"
+      vcpus: "{{ worker.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     when:
@@ -67,10 +112,38 @@
       - redfish.enable|bool
     with_items: "{{ worker_nodes }}"
   
-  - name: Defining ODF worker VMs - virtualbmc
-    shell: |
-      virt-install --ram {{ worker.memory }} --vcpus {{ worker.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}-osd-1.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_prov }},mac={{ item.provisioning_mac }} --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  - name: Define ODF worker VMs - virtualbmc
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ worker.memory }}"
+      vcpus: "{{ worker.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}-osd-1.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_prov }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.provisioning_mac }}"
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     when:
@@ -78,11 +151,34 @@
       - item.state == "present"
       - not redfish.enable|bool
     with_items: "{{ worker_nodes }}"
-
-  - name: Defining ODF worker VMs - redfish
-    shell: |
-      virt-install --ram {{ worker.memory }} --vcpus {{ worker.cpu }} --os-variant rhel9.5 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2,device=disk,bus=virtio,format=qcow2 --disk path={{ item.hypervisor_image_dir }}/{{ item.name }}-osd-1.qcow2,device=disk,bus=virtio,format=qcow2 --noautoconsole --vnc --network bridge:{{ bridge_bm }},mac={{ item.baremetal_mac }} --name {{ item.name }} --cpu host-passthrough --dry-run --print-xml > /tmp/{{ item.name }}.xml
-      virsh define /tmp/{{ item.name }}.xml
+  
+  - name: Define ODF worker VMs - redfish
+    community.libvirt.virt_install:
+      state: present
+      import: true
+      name: "{{ item.name }}"
+      memory: "{{ worker.memory }}"
+      vcpus: "{{ worker.cpu }}"
+      cpu:
+        model: "host-passthrough"
+      osinfo:
+        name: "rhel9.5"
+      disks:
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+        - path: "{{ item.hypervisor_image_dir }}/{{ item.name }}-osd-1.qcow2"
+          bus: "virtio"
+          format: "qcow2"
+      networks:
+        - bridge: "{{ bridge_bm }}"
+          model:
+            type: virtio
+          mac:
+            address: "{{ item.baremetal_mac }}"
+      graphics:
+        type: vnc
+        listen: "0.0.0.0"
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     when:
