@@ -66,34 +66,28 @@
     when:
       - upgrade_system.changed
 
-  - name: Check selinux status
-    ansible.builtin.shell: |
-      sestatus | egrep '^Current mode:' | sed -E 's/^Current mode:\s+//g'
-    register: selinux_status
-    when:
-      - kvmhost.enable_selinux|bool
-
   - name: Enable SELinux
     ansible.posix.selinux:
       policy: targeted
       state: enforcing
+    register: selinux_change
     when:
       - kvmhost.enable_selinux|bool
 
-  - name: Create autorelabel file
+  - name: Create autorelabel file if reboot is required
     ansible.builtin.file:
       path: /.autorelabel
       state: touch
     when:
       - kvmhost.enable_selinux|bool
-      - not selinux_status.stdout == "enforcing"
+      - selinux_change.reboot_required | default(false) | bool
 
-  - name: Reboot in order to enable selinux
+  - name: Reboot in order to enable selinux if required
     ansible.builtin.reboot:
       reboot_timeout: "{{ kvmhost.reboot_timeout }}"
     when:
       - kvmhost.enable_selinux|bool
-      - not selinux_status.stdout == "enforcing"
+      - selinux_change.reboot_required | default(false) | bool
 
   - name: Comment all rp_filter
     ansible.builtin.shell: |
