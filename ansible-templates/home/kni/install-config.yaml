@@ -8,7 +8,7 @@ networking:
   networkType: OVNKubernetes
 compute:
 - name: worker
-  replicas: 2
+  replicas: {{ worker_nodes | length }}
 controlPlane:
   name: master
   replicas: 3
