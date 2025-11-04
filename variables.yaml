@@ -80,7 +80,7 @@ enable_letsencrypt: False
 # used on cleanup
 image_dir: /var/lib/libvirt/images
 image_dir_bastion: /var/lib/libvirt/imagesssd
-image: rhel-9.5-x86_64-kvm.qcow2
+image: rhel-9.6-x86_64-kvm.qcow2
 image_location_url:
 image_location_file: "/root/images/rhel-9.6-x86_64-kvm.qcow2"
 pull_secret_file: pull-secret.txt
