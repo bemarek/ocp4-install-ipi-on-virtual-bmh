@@ -24,9 +24,9 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
-  - name: Copying Template Image to create bastion. RHEL8
+  - name: Copying Template Image to create bastion
     ansible.builtin.copy:
-      src: "{{ item.hypervisor_image_dir }}/rhel9-bastion.qcow2"
+      src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/bastion.qcow2"
       remote_src: True
     delegate_to: "{{ item.hypervisor_name }}"
