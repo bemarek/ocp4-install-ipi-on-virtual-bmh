@@ -286,6 +286,7 @@
         - podman
         - ipmitool
         - tree
+        - ksmtuned
       state: present
 
   - name: Install keepalived
@@ -750,6 +751,18 @@
   - name: Enable ip6tables services
     ansible.builtin.systemd:
       name: ip6tables
+      state: started
+      enabled: True
+
+  - name: Enable ksm service
+    ansible.builtin.systemd:
+      name: ksm
+      state: started
+      enabled: True
+
+  - name: Enable ksmtuned service
+    ansible.builtin.systemd:
+      name: ksmtuned
       state: started
       enabled: True
 
