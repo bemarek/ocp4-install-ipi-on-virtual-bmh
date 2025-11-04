@@ -85,4 +85,4 @@ image_location_url:
 image_location_file: "/root/images/rhel-9.6-x86_64-kvm.qcow2"
 pull_secret_file: pull-secret.txt
 supported_os: rhel9
-ocpversion: stable-4.19
+ocpversion: stable-4.20
