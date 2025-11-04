@@ -109,72 +109,18 @@
       - /tmp/ifcfg-eth0
       - ansible-ssh
 
-  - name: Remove qcow2 files
-    file:
-      path: "{{ item.hypervisor_image_dir }}/{{ item.name }}.qcow2"
-      state: absent
-    delegate_to: "{{ item.hypervisor_name }}"
-    run_once: True
-    when:
-      - item.state == "present"
-    with_items:
-      - "{{ bastion_nodes }}"
-      - "{{ utility_nodes }}"
-      - "{{ master_nodes }}"
-      - "{{ worker_nodes }}"
-    ignore_errors: True
+  - name: Find qcow2 files matching the pattern
+    ansible.builtin.find:
+      paths: "{{ image_dir_bastion }}"
+      patterns: "*.qcow2"
+      recurse: no
+    register: files_to_remove
 
-  - name: Remove qcow2 files
-    file:
-      path: "{{ image_dir }}/{{ item }}"
+  - name: Remove found qcow2 files
+    ansible.builtin.file:
+      path: "{{ item.path }}"
       state: absent
-    with_items:
-      - rhel8.qcow2
-      - rhel8-100G.qcow2
-      - rhel8-100G-no-eth0.qcow2
-      - rhel8-bastion.qcow2
-      - rhel8-utility.qcow2
-      - bastion.qcow2
-      - utility.qcow2
-      - "{{ image }}"
-
-  - name: Remove qcow2 files
-    file:
-      path: "{{ image_dir_bastion }}/{{ item }}"
-      state: absent
-    with_items:
-      - rhel8.qcow2
-      - rhel8-100G.qcow2
-      - rhel8-100G-no-eth0.qcow2
-      - rhel8-bastion.qcow2
-      - rhel8-utility.qcow2
-      - bastion.qcow2
-      - utility.qcow2
-      - "{{ image }}"
-
-  - name: Remove odf osd-1 qcow2 files
-    file:
-      path: "{{ item.hypervisor_image_dir }}/{{ item.name }}-osd-1.qcow2"
-      state: absent
-    delegate_to: "{{ item.hypervisor_name }}"
-    run_once: True
-    when:
-      - item.state == "present"
-    with_items:
-      - "{{ worker_nodes }}"
-    ignore_errors: True
-
-  - name: Remove odf osd-2 qcow2 files
-    file:
-      path: "{{ item.hypervisor_image_dir }}/{{ item.name }}-osd-2.qcow2"
-      state: absent
-    delegate_to: "{{ item.hypervisor_name }}"
-    run_once: True
-    when:
-      - item.state == "present"
-    with_items:
-      - "{{ worker_nodes }}"
-    ignore_errors: True
+    loop: "{{ files_to_remove.files }}"
 
   - name: Remove ssh known hosts - bastion
     known_hosts:
