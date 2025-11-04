@@ -24,9 +24,9 @@
     - vault-variables.yaml
     - bm-ansible-nodes.json
   tasks:
-  - name: Copying Template Image to create utility. RHEL8
+  - name: Copying Template Image to create utility
     ansible.builtin.copy:
-      src: "{{ item.hypervisor_image_dir }}/rhel9-utility.qcow2"
+      src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-utility.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/utility.qcow2"
       remote_src: True
     delegate_to: "{{ item.hypervisor_name }}"
