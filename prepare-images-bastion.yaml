@@ -49,20 +49,19 @@
       group: root
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
-    when:
-      - image_get_url.failed is defined
+    when: image_get_url.failed is defined or not image_location_url
     with_items: "{{ bastion_nodes }}"
 
   - name: Create a new Blank Image
     shell: |
-      qemu-img create -f qcow2  {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2 {{ bastion.disk }}
+      qemu-img create -f qcow2  {{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2 {{ bastion.disk }}
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ bastion_nodes }}"
 
   - name: Resizing the filesystem
     shell: |
-      virt-resize --format qcow2 --expand /dev/sda3 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
+      virt-resize --format qcow2 --expand /dev/sda3 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2
     environment:
       LIBGUESTFS_PATH: "{{ libguestfs_path }}"
     delegate_to: "{{ item.hypervisor_name }}"
@@ -72,7 +71,7 @@
 
   - name: Resizing the filesystem
     shell: |
-      virt-resize --format qcow2 --expand /dev/sda4 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2
+      virt-resize --format qcow2 --expand /dev/sda4 {{ item.hypervisor_image_dir }}/{{ supported_os }}.qcow2 {{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     environment:
@@ -91,7 +90,7 @@
 
   - name: Customizing the image to set root password, push ssh key and remove cloud-init
     shell: |
-      virt-customize -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2 --root-password password:"{{ secure_password }}" --ssh-inject "root:file:/tmp/id_rsa.pub" --selinux-relabel --run-command 'yum remove cloud-init* -y'
+      virt-customize -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2 --root-password password:"{{ secure_password }}" --ssh-inject "root:file:/tmp/id_rsa.pub" --selinux-relabel --run-command 'yum remove cloud-init* -y'
     environment:
       LIBGUESTFS_PATH: "{{ libguestfs_path }}"
     delegate_to: "{{ item.hypervisor_name }}"
@@ -101,7 +100,7 @@
 
   - name: Customizing the image to set root password, push ssh key and remove cloud-init
     shell: |
-      virt-customize -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2 --root-password password:"{{ secure_password }}" --ssh-inject "root:file:/tmp/id_rsa.pub" --selinux-relabel --run-command 'yum remove cloud-init* -y'
+      virt-customize -a {{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2 --root-password password:"{{ secure_password }}" --ssh-inject "root:file:/tmp/id_rsa.pub" --selinux-relabel --run-command 'yum remove cloud-init* -y'
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ bastion_nodes }}"
@@ -118,14 +117,14 @@
   tasks:
   - name: Copy Base Image to create bastion host image
     ansible.builtin.copy:
-      src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-100G.qcow2"
+      src: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-{{ bastion.disk }}.qcow2"
       dest: "{{ item.hypervisor_image_dir }}/{{ supported_os }}-bastion.qcow2"
       remote_src: True
     delegate_to: "{{ item.hypervisor_name }}"
     run_once: True
     with_items: "{{ bastion_nodes }}"
 
-  - name: Create /tmp/ifcfg-eth0 for RHEL8 - virtualbmc
+  - name: Create /tmp/ifcfg-eth0 for RHEL - virtualbmc
     ansible.builtin.copy:
       dest: /tmp/ifcfg-eth0
       mode: '0644'
@@ -143,7 +142,7 @@
     when:
       - not redfish.enable|bool
 
-  - name: Create /tmp/ifcfg-eth1 for RHEL8 - virtualbmc
+  - name: Create /tmp/ifcfg-eth1 for RHEL - virtualbmc
     ansible.builtin.copy:
       dest: /tmp/ifcfg-eth1
       mode: '0644'
