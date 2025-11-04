@@ -40,24 +40,24 @@ vip:
 utility:
   cpu: 2
   memory: 2048
-  disk: 100Gi
+  disk: 100G
 bastion:
   cpu: 6
   memory: 16384
-  disk: 100Gi
+  disk: 100G
   post_cpu: 2
   post_memory: 4096
   post_scaledown: True
 master:
   cpu: 4
   memory: 16384
-  disk: 120Gi
+  disk: 120G
   osd_disk: 500G
 worker:
   cpu: 8
   memory: 32768
-  disk: 150Gi
-  osd_disk: 1536Gi
+  disk: 150G
+  osd_disk: 1536G
 kvmhost:
   enable_selinux: True
   reboot_timeout: 1200
